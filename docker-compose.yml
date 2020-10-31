@@ -1,0 +1,11 @@
+version: '3'
+services:
+  main:
+    image: stayradiated/zwolf-signal:latest
+    build: '.'
+    environment:
+      - "OWNER_NUMBER=+123456789"
+      - "ASSISTANT_NUMBER=+987654321"
+      - "ASSISTANT_FOLDER=/root"
+    volumes:
+      - "./signal-cli-config:/root/.local/share/signal-cli"

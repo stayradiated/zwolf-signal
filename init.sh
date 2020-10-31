@@ -1,4 +1,4 @@
 #!/bin/sh
 
-dbus-daemon --session &
-/usr/bin/signal-assistant
+export DBUS_SESSION_BUS_ADDRESS=$(dbus-daemon --session --fork --print-address)
+/usr/bin/zwolf-signal

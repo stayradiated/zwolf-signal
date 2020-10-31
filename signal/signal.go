@@ -29,12 +29,12 @@ func NewSignal() *Signal {
 func (s *Signal) Listen() {
 	log.Print("Connecting to signal-cli.")
 	if err := launchSignalCLI(); err != nil {
-		log.Fatalf("Unable to start signal-cli %v", err)
+		log.Fatalf("Unable to start signal-cli: %v", err)
 	}
 	signals := make(chan *dbus.Signal, 10)
 	conn, err := connectDBus(signals)
 	if err != nil {
-		log.Fatalf("Failed to connect to DBus %v", err)
+		log.Fatalf("Failed to connect to DBus: %v", err)
 	}
 	defer conn.Close()
 
@@ -45,7 +45,7 @@ func (s *Signal) Listen() {
 		}
 		message, err := newMessageFromSignal(signal)
 		if err != nil {
-			log.Printf("Failed to parse new message from signal %v", err)
+			log.Printf("Failed to parse new message from signal: %v", err)
 			continue
 		}
 		s.Messages <- message
@@ -84,13 +84,14 @@ func launchSignalCLI() (err error) {
 		err = errors.New("Failed to retrieve assistant phone number from $ASSISTANT_NUMBER")
 		return
 	}
+	log.Print(phoneNumber)
 	cmd := exec.Command("signal-cli", "-u", phoneNumber, "daemon")
+	// cmd.Stdout = os.Stdout
+	// cmd.Stderr = os.Stderr
 	err = cmd.Start()
 	if err != nil {
 		return
 	}
-	// Allow for signal-cli to start before attempting to connect to the DBus service.
-	time.Sleep(time.Second * 3)
 	log.Print("Started signal-cli on the session bus")
 	return
 }
@@ -101,8 +102,14 @@ func connectDBus(signals chan<- *dbus.Signal) (conn *dbus.Conn, err error) {
 	if err != nil {
 		return
 	}
-	if err = verifyConnection(conn); err != nil {
-		return
+	for true {
+		if err = verifyConnection(conn); err != nil {
+			log.Print(err)
+			time.Sleep(1 * time.Second)
+		} else {
+			log.Print("signal-cli connection success!")
+			break
+		}
 	}
 	options := dbus.WithMatchSender(SIGNAL_CLI_DBUS_SERVICE)
 	err = conn.AddMatchSignal(options)

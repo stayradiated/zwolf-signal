@@ -13,14 +13,11 @@ import (
 	"github.com/stayradiated/zwolf-signal/signal"
 )
 
-const DEFAULT_ALERT_INTERVAL = time.Minute * 15
-
 type Assistant struct {
 	cli          *signal.Signal
 	owner        string
 	commands     []command
 	sharedFolder string
-	alerts       []*alert
 }
 
 func NewAssistant(owner, sharedFolder string) *Assistant {
@@ -29,13 +26,11 @@ func NewAssistant(owner, sharedFolder string) *Assistant {
 		owner:        owner,
 		commands:     getAllCommands(),
 		sharedFolder: sharedFolder,
-		alerts:       alerts,
 	}
 }
 
 func (a *Assistant) Run() {
 	go a.cli.Listen()
-	go a.runAlerts()
 
 	for msg := range a.cli.Messages {
 		err := a.validateMessage(msg)
@@ -46,29 +41,6 @@ func (a *Assistant) Run() {
 		err = a.executeCommand(msg)
 		if err != nil {
 			a.errorHandler("Failed to execute command,", err)
-		}
-	}
-}
-
-func (a *Assistant) runAlerts() {
-	log.Print("Alert service started.")
-	ticker := time.NewTicker(DEFAULT_ALERT_INTERVAL)
-	for {
-		select {
-		case <-ticker.C:
-			for _, alert := range a.alerts {
-				log.Printf("%v alert running.", alert.name)
-				message := alert.handler()
-				if message != "" {
-					err := a.sendMessage(message, nil)
-					if err != nil {
-						a.errorHandler(fmt.Sprintf("Error occured while trying to send message during %v alert", alert), err)
-					}
-					// In case multiple alerts return a response sleep for 10 seconds
-					// to avoid spamming the owner with notifications.
-					time.Sleep(time.Second * 10)
-				}
-			}
 		}
 	}
 }

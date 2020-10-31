@@ -86,8 +86,8 @@ func launchSignalCLI() (err error) {
 	}
 	log.Print(phoneNumber)
 	cmd := exec.Command("signal-cli", "-u", phoneNumber, "daemon")
-	// cmd.Stdout = os.Stdout
-	// cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	err = cmd.Start()
 	if err != nil {
 		return

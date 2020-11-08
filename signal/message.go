@@ -10,15 +10,15 @@ import (
 
 type Message struct {
 	Time        time.Time
-	PhoneNumber string
+	Recipient   string
 	Text        string
 	Attachments []string
 }
 
-func NewMessage(t time.Time, phone, text string, attachments []string) *Message {
+func NewMessage(t time.Time, recipient, text string, attachments []string) *Message {
 	return &Message{
 		Time:        t,
-		PhoneNumber: phone,
+		Recipient:   recipient,
 		Text:        text,
 		Attachments: attachments,
 	}
@@ -32,9 +32,9 @@ func newMessageFromSignal(signal *dbus.Signal) (msg *Message, err error) {
 		return
 	}
 	t := time.Unix(utc, 0)
-	phone, ok := signal.Body[1].(string)
+	recipient, ok := signal.Body[1].(string)
 	if !ok {
-		err = errors.New(fmt.Sprintf("failed to convert phone number to string, %v\n", signal.Body[1]))
+		err = errors.New(fmt.Sprintf("failed to convert recipient number to string, %v\n", signal.Body[1]))
 		return
 	}
 	text, ok := signal.Body[3].(string)
@@ -47,6 +47,6 @@ func newMessageFromSignal(signal *dbus.Signal) (msg *Message, err error) {
 		err = errors.New(fmt.Sprintf("failed to convert attachment path to slice of strings, %v", signal.Body[4]))
 		return
 	}
-	msg = NewMessage(t, phone, text, attachments)
+	msg = NewMessage(t, recipient, text, attachments)
 	return
 }

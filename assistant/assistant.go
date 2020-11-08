@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -14,18 +13,16 @@ import (
 )
 
 type Assistant struct {
-	cli          *signal.Signal
-	owner        string
-	commands     []command
-	sharedFolder string
+	cli      *signal.Signal
+	owner    string
+	commands []command
 }
 
-func NewAssistant(owner, sharedFolder string) *Assistant {
+func NewAssistant(botNumber, ownerNumber string) *Assistant {
 	return &Assistant{
-		cli:          signal.NewSignal(),
-		owner:        owner,
-		commands:     getAllCommands(),
-		sharedFolder: sharedFolder,
+		cli:      signal.NewSignal(botNumber),
+		owner:    ownerNumber,
+		commands: getAllCommands(),
 	}
 }
 
@@ -46,8 +43,8 @@ func (a *Assistant) Run() {
 }
 
 func (a *Assistant) validateMessage(msg *signal.Message) error {
-	if msg.PhoneNumber != a.owner {
-		return errors.New(fmt.Sprintf("Message arrived from unknown number %v", msg.PhoneNumber))
+	if msg.Recipient != a.owner {
+		return errors.New(fmt.Sprintf("Message arrived from unknown number %v", msg.Recipient))
 	}
 	if len(msg.Text) == 0 || string(msg.Text[0]) != "!" {
 		return errors.New(fmt.Sprintf("Invalid command format. Must start with !. Message Text: %v", msg.Text))
@@ -66,29 +63,6 @@ func (a *Assistant) executeCommand(msg *signal.Message) (err error) {
 		args: args,
 	}
 	switch command.cmd {
-	case STORE:
-		if len(command.args) < 2 {
-			err = errors.New(fmt.Sprintf("Expected 2 arguments, got %v", len(command.args)))
-			return
-		}
-		err = a.storeAttachments(msg.Attachments, command.args[0], command.args[1])
-		if err != nil {
-			return
-		}
-	case LIST:
-		err = a.listSharedFiles()
-		if err != nil {
-			return
-		}
-	case GET:
-		if len(command.args) < 1 {
-			err = errors.New(fmt.Sprintf("Expected at least 1 argument, got %v", len(command.args)))
-			return
-		}
-		err = a.returnFile(command.args)
-		if err != nil {
-			return
-		}
 	case MAN:
 		err = a.returnManual()
 		if err != nil {
@@ -97,57 +71,6 @@ func (a *Assistant) executeCommand(msg *signal.Message) (err error) {
 	default:
 		err = errors.New("Invalid command, type !man to see a list of available commands.")
 	}
-	return
-}
-
-// Handles !store command.
-func (a *Assistant) storeAttachments(attachments []string, fileName, fileExtension string) (err error) {
-	if len(attachments) == 0 {
-		err = errors.New("No attachments to store.")
-		return
-	}
-	// TODO: add support for multiple attachments.
-	if len(attachments) > 1 {
-		err = errors.New("Only one attachment supported at the moment.")
-		return
-	}
-	// TODO: detect mime type and use it to generate a fileExtension.
-	fullPath := a.sharedFolder + fileName + "." + fileExtension
-	err = copy(attachments[0], fullPath)
-	if err == nil {
-		err = a.sendMessage("Saved attachment at "+fullPath, nil)
-	}
-	return
-}
-
-// Handles !list command.
-func (a *Assistant) listSharedFiles() (err error) {
-	files, err := ioutil.ReadDir(a.sharedFolder)
-	if err != nil {
-		return
-	}
-	output := "All files in " + a.sharedFolder + "\n"
-	for _, f := range files {
-		output += fmt.Sprintf("%v, size: %v\n", f.Name(), f.Size())
-	}
-	err = a.sendMessage(output, nil)
-	return
-}
-
-// Handles !get command.
-func (a *Assistant) returnFile(fileNames []string) (err error) {
-	attachments := []string{}
-	message := ""
-	for _, fileName := range fileNames {
-		fullPath := a.sharedFolder + fileName
-		if _, err := os.Stat(fullPath); !os.IsNotExist(err) {
-			// fileName exists.
-			attachments = append(attachments, fullPath)
-		} else {
-			message += fmt.Sprintf("Unable to find %v.", fullPath)
-		}
-	}
-	err = a.sendMessage(message, attachments)
 	return
 }
 

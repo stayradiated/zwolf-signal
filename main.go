@@ -8,22 +8,14 @@ import (
 )
 
 func main() {
-	phoneNumber := os.Getenv("OWNER_NUMBER")
-	if phoneNumber == "" {
-		log.Fatal("Phone number not provided.")
+	botNumber := os.Getenv("BOT_NUMBER")
+	if botNumber == "" {
+		log.Fatal("The BOT_NUMBER env var is required.")
 	}
-	sharedFolder := os.Getenv("ASSISTANT_FOLDER")
-	if sharedFolder == "" {
-		log.Fatal("Shared folder not provided")
+	ownerNumber := os.Getenv("OWNER_NUMBER")
+	if ownerNumber == "" {
+		log.Fatal("The OWNER_NUMBER env var is required.")
 	}
-	_, err := os.Stat(sharedFolder)
-	if os.IsNotExist(err) {
-		log.Fatal("Provided shared folder does not exists")
-	}
-	// The Assistant expects the shared folder to have the trailing slash included.
-	if string(sharedFolder[len(sharedFolder)-1]) != "/" {
-		sharedFolder += "/"
-	}
-	assistant := assistant.NewAssistant(phoneNumber, sharedFolder)
+	assistant := assistant.NewAssistant(botNumber, ownerNumber)
 	assistant.Run()
 }

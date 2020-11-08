@@ -2,7 +2,6 @@ package signal
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -16,19 +15,20 @@ const (
 )
 
 type Signal struct {
+	Username string
 	Messages chan *Message
 }
 
-func NewSignal() *Signal {
+func NewSignal(username string) *Signal {
 	messages := make(chan *Message, 10)
-	return &Signal{messages}
+	return &Signal{username, messages}
 }
 
 // Listen() establishes a connection to the DBus service and listens for
 // incoming Signal messages.
 func (s *Signal) Listen() {
 	log.Print("Connecting to signal-cli.")
-	if err := launchSignalCLI(); err != nil {
+	if err := launchSignalCLI(s.Username); err != nil {
 		log.Fatalf("Unable to start signal-cli: %v", err)
 	}
 	signals := make(chan *dbus.Signal, 10)
@@ -39,6 +39,7 @@ func (s *Signal) Listen() {
 	defer conn.Close()
 
 	for signal := range signals {
+		log.Print(signal)
 		// Read receipts are of no interest to this application.
 		if signal.Name == "org.asamk.Signal.ReceiptReceived" {
 			continue
@@ -57,11 +58,7 @@ func (s *Signal) Listen() {
 // using dbus.Object.Call().
 // TODO: further investigate using org.asamk.Signal.sendMessage method.
 func (s *Signal) SendMessage(msg *Message) (err error) {
-	if msg.PhoneNumber[0:2] != "+1" && len(msg.PhoneNumber) != 12 {
-		err = errors.New(fmt.Sprintf("Unable to send message, phone number format incorrect: %v", msg.PhoneNumber))
-		return
-	}
-	args := []string{"--dbus", "send", "-m", msg.Text, msg.PhoneNumber}
+	args := []string{"--dbus", "send", "-m", msg.Text, msg.Recipient}
 	if len(msg.Attachments) > 0 {
 		args = append(args, "-a")
 		for _, attachment := range msg.Attachments {
@@ -78,14 +75,8 @@ func (s *Signal) SendMessage(msg *Message) (err error) {
 }
 
 // Launches signal-cli on the Session DBus in daemon mode.
-func launchSignalCLI() (err error) {
-	phoneNumber := os.Getenv("ASSISTANT_NUMBER")
-	if phoneNumber == "" {
-		err = errors.New("Failed to retrieve assistant phone number from $ASSISTANT_NUMBER")
-		return
-	}
-	log.Print(phoneNumber)
-	cmd := exec.Command("signal-cli", "-u", phoneNumber, "daemon")
+func launchSignalCLI(username string) (err error) {
+	cmd := exec.Command("signal-cli", "-u", username, "daemon")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Start()

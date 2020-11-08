@@ -58,7 +58,7 @@ func (s *Signal) Listen() {
 // using dbus.Object.Call().
 // TODO: further investigate using org.asamk.Signal.sendMessage method.
 func (s *Signal) SendMessage(msg *Message) (err error) {
-	args := []string{"--dbus", "send", "-m", msg.Text, msg.Recipient}
+	args := []string{"--dbus", "send", "-m", msg.Text, msg.Username}
 	if len(msg.Attachments) > 0 {
 		args = append(args, "-a")
 		for _, attachment := range msg.Attachments {

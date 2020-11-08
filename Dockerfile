@@ -4,14 +4,14 @@
 
 FROM golang:1.15.3-alpine as zwolf-signal
 
-WORKDIR $GOPATH/src/github.com/stayradiated/zwolf-assistant
+WORKDIR $GOPATH/src/github.com/stayradiated/zwolf-signal
 
 COPY go.mod go.sum ./
 
 RUN go mod download
 
 COPY main.go ./
-COPY assistant ./assistant
+COPY service ./service
 COPY signal ./signal
 
 RUN \

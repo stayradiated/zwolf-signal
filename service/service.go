@@ -87,7 +87,12 @@ func (s *Service) subscribeToAmqp() {
 		msg.Ack()
 
 		smsg := signal.Message{}
-		json.Unmarshal(msg.Payload, &smsg)
+		err := json.Unmarshal(msg.Payload, &smsg)
+		if err != nil {
+			log.Print(err)
+			continue
+		}
+
 		s.sendMessage(smsg.Text, smsg.Attachments)
 	}
 }

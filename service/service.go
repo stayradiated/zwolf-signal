@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,8 +16,8 @@ import (
 )
 
 var (
-	consumeTopic = "events"
-	publishTopic = "events-processed"
+	sendMessagesTopic     = "send-messages"
+	receivedMessagesTopic = "received-messages"
 
 	logger = watermill.NewStdLogger(
 		true,  // debug
@@ -25,9 +26,10 @@ var (
 )
 
 type Service struct {
-	cli       *signal.Signal
-	owner     string
-	publisher message.Publisher
+	cli        *signal.Signal
+	owner      string
+	publisher  message.Publisher
+	subscriber message.Subscriber
 }
 
 func NewService(botNumber, ownerNumber, amqpAddress string) *Service {
@@ -38,20 +40,27 @@ func NewService(botNumber, ownerNumber, amqpAddress string) *Service {
 		panic(err)
 	}
 
+	subscriber, err := amqp.NewSubscriber(queueConfig, logger)
+	if err != nil {
+		panic(err)
+	}
+
 	return &Service{
-		cli:       signal.NewSignal(botNumber),
-		owner:     ownerNumber,
-		publisher: publisher,
+		cli:        signal.NewSignal(botNumber),
+		owner:      ownerNumber,
+		publisher:  publisher,
+		subscriber: subscriber,
 	}
 }
 
-func (a *Service) Run() {
-	go a.cli.Listen()
+func (s *Service) Run() {
+	go s.cli.Listen()
+	go s.subscribeToAmqp()
 
-	for msg := range a.cli.Messages {
-		err := a.validateMessage(msg)
+	for msg := range s.cli.Messages {
+		err := s.validateMessage(msg)
 		if err != nil {
-			a.errorHandler("Failed to validate message,", err)
+			s.errorHandler("Failed to validate message,", err)
 			continue
 		}
 
@@ -60,15 +69,31 @@ func (a *Service) Run() {
 			panic(err)
 		}
 
-		a.publisher.Publish(consumeTopic, message.NewMessage(
+		s.publisher.Publish(receivedMessagesTopic, message.NewMessage(
 			watermill.NewUUID(),
 			payload,
 		))
 	}
 }
 
-func (a *Service) validateMessage(msg *signal.Message) error {
-	if msg.Username != a.owner {
+func (s *Service) subscribeToAmqp() {
+	messages, err := s.subscriber.Subscribe(context.Background(), sendMessagesTopic)
+	if err != nil {
+		panic(err)
+	}
+
+	for msg := range messages {
+		fmt.Printf("received message: %s, payload: %s\n", msg.UUID, string(msg.Payload))
+		msg.Ack()
+
+		smsg := signal.Message{}
+		json.Unmarshal(msg.Payload, &smsg)
+		s.sendMessage(smsg.Text, smsg.Attachments)
+	}
+}
+
+func (s *Service) validateMessage(msg *signal.Message) error {
+	if msg.Username != s.owner {
 		return errors.New(fmt.Sprintf("Message arrived from unknown number %v", msg.Username))
 	}
 	if len(msg.Text) == 0 {
@@ -78,18 +103,18 @@ func (a *Service) validateMessage(msg *signal.Message) error {
 }
 
 // Wraps signal.SendMessage.
-func (a *Service) sendMessage(text string, attachments []string) (err error) {
-	msg := signal.NewMessage(time.Now(), a.owner, text, attachments)
-	err = a.cli.SendMessage(msg)
+func (s *Service) sendMessage(text string, attachments []string) (err error) {
+	msg := signal.NewMessage(time.Now(), s.owner, text, attachments)
+	err = s.cli.SendMessage(msg)
 	return
 }
 
 // A helper method to log the error and send a notification to the Service owner.
-func (a *Service) errorHandler(message string, err error) {
+func (s *Service) errorHandler(message string, err error) {
 	txt := fmt.Sprintf("%v %v", message, err)
 	log.Print(txt)
 	// Notify the owner of any errors.
-	err = a.sendMessage(txt, nil)
+	err = s.sendMessage(txt, nil)
 	if err != nil {
 		log.Printf("Failed to send message, %v", err)
 	}

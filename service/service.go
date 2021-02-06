@@ -64,9 +64,11 @@ func (s *Service) Run() {
 			continue
 		}
 
+		fmt.Println(msg)
+
 		payload, err := json.Marshal(msg)
 		if err != nil {
-			panic(err)
+			s.errorHandler("Could not marshal message into JSON", err)
 		}
 
 		s.publisher.Publish(receivedMessagesTopic, message.NewMessage(

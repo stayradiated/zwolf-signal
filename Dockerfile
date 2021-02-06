@@ -24,7 +24,7 @@ RUN \
 
 FROM alpine:3.12.1 as signal-cli
 
-ARG SIGNAL_CLI_VERSION="0.6.11"
+ARG SIGNAL_CLI_VERSION="0.7.4"
 
 RUN \
   wget \

@@ -31,7 +31,7 @@ func newMessageFromSignal(signal *dbus.Signal) (msg *Message, err error) {
 		err = errors.New(fmt.Sprintf("failed to convert time to int64, %v\n", signal.Body[0]))
 		return
 	}
-	t := time.Unix(utc, 0)
+	t := time.Unix(0, utc * int64(time.Millisecond))
 	username, ok := signal.Body[1].(string)
 	if !ok {
 		err = errors.New(fmt.Sprintf("failed to convert username to string, %v\n", signal.Body[1]))

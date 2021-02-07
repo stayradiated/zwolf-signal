@@ -37,7 +37,7 @@ docker-compose restart main
 View the logs with
 
 ```
-docker-compose logs --tail=100 -f mian
+docker-compose logs --tail=100 -f main
 ```
 
 ## Under the hood
